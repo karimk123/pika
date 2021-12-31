@@ -12,6 +12,6 @@
   "dependencies": {
     "express": "^4.17.2",
     "socket.io": "^4.4.0",
-    "http": "1.0.0"
+    "http": "0.0.1"
   }
 }
