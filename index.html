@@ -11,10 +11,30 @@
 
 	<h2>Live Feed</h2>
 	<img height="85%" src="" id="img">
+	<h4 style="color: #ececec;
+    font-size: 20px;
+    position: absolute;
+    top: 171px;
+    left: 30%;
+    transform: translateX(-50%);
+    width: fit-content;">Quality: </h4><input type="range" min="1" max="100" value="13" id="quality"> <h4 id="quality-num">13</h4>
+
+
+	<br>
+	<br>
+	<br>
 	<h2 style="top:-138px">PC actions</h2>
 	<input type="text" id="tts" placeholder="TTS"> <button onclick="tts()">Go</button>
 <br>
-<br>	<input type="text" id="cmd" placeholder="CMD"> <button onclick="cmd()">Go</button>
+<br>	<!--<input type="text" id="cmd" placeholder="CMD"> <button onclick="cmd()">Go</button>-->
+<br>
+<div id="cmd-output-container">
+	<p>$</p> <input id="cmd-input" type="text"/>
+
+</div>
+<button style="left: 50%;margin-top:60px" onclick="socket.emit('cmd_quit')">Stop Command (Ctrl+C)</button>
+<br>
+<br>
 <br>
 <br>
 	<textarea id="python" cols="30" rows="10" placeholder="Python"></textarea> <br><br><button style="left: 50%" onclick="python()">Run</button>
@@ -143,6 +163,7 @@
 <script>
 	var socket = io();
 	var img = document.getElementById('img');
+	var lastCmd = ""
 	socket.on("data", data => {
 		img.src = "data:image/jpg;base64," + data;
 	});  
@@ -152,8 +173,25 @@
 		//img.style.height = res.height
 		//img.style.width = res.width;
 	})
+	socket.on("quality", res => {
+		$("#quality-num").text(res)
+		$("#quality").attr("value", res)
+
+	})
 
 
+
+	socket.on("cmd_output", data => {
+		$("#cmd-output-container p:last").before('<p style="margin-bottom:-12px;padding:12px 0 0 11px">' + data.replaceAll("<", "&lt;").replaceAll(">", "&gt;") + '</p>')
+		$("#cmd-output-container").scrollTop($("#cmd-output-container")[0].scrollHeight);
+			
+	})
+	socket.on("output_end", data => {
+		$("#cmd-output-container p:last").show()
+		$("#cmd-output-container input:last").show()
+		$("#cmd-output-container input:last").focus()
+		
+	})
 	function tts(){
 		var tts = document.getElementById('tts').value;
 		socket.emit('tts', tts);
@@ -195,7 +233,7 @@
 
 		})
 
-		
+
 		function press(key){
 			key = key.toLowerCase().replaceAll("◂", "left").replaceAll("▴", "up").replaceAll("▾", "down").replaceAll("▸", "right");
 			if(["ctrl", "alt", "shift"].includes(key)){
@@ -211,16 +249,77 @@
 			}
 			socket.emit("keypress", key);
 		}
+
+
+
+		$("#quality").on("input", (e) => {
+			$("#quality-num").text(e.target.value);
+		})
+		$("#quality").on("change", (e) => {
+			socket.emit("quality", e.target.value);
+		})
+		$("#cmd-output-container").click(() => {
 			
+			if(window.getSelection().anchorNode.toString() != '[object Text]'){
+				$("#cmd-output-container input:last").focus();
+				$("#cmd-output-container input").focus();
+			}
+		})
+		$("#cmd-input").on("keypress", (e) => {
+			if(e.keyCode == 13){
+				if($("#cmd-input").val() == ""){
+					$("#cmd-output-container p:last").before('<p style="margin-bottom:-12px;padding:12px 0 0 11px">$</p>')
+					$("#cmd-output-container").scrollTop($("#cmd-output-container")[0].scrollHeight);
+				}
+				else{
+					if($("#cmd-input").val() == "clear"){
+						$("#cmd-output-container p").not(':last').remove();
+						$("#cmd-input").val("");	
+						$("#cmd-output-container").scrollTop($("#cmd-output-container")[0].scrollHeight);
+						return
+					}
+
+					
+						
+					$("#cmd-output-container p:last").before('<p style="margin-bottom:-12px;padding:12px 0 0 11px;color:##00ca00;">$ <span style="color: #bbe1fa">' + $("#cmd-input").val() + '</span></p>')
+					socket.emit("cmd", $("#cmd-input").val());
+					lastCmd = $("#cmd-input").val();
+					$("#cmd-output-container p:last").hide()
+					$("#cmd-output-container input:last").hide()
+					
+					
+					$("#cmd-input").val("")
+				}
+			}
+
+		})
+
+		$("#cmd-output-container").on("keydown", e => {
+			if (e.keyCode == 38 && lastCmd != ""){
+				console.log("sdfsdf")
+				$("#cmd-input").val(lastCmd);
+			}
+		})
+
+
+		$(document).keydown(function(e) {
+			if(e.keyCode == 67 && e.ctrlKey) {
+				socket.emit("cmd_quit");
+				console.log("end command")
+			}
+		});
 </script>
 <style>
 	@import url('https://fonts.googleapis.com/css2?family=Khula:wght@400;600;700;800&display=swap');
+	html{
+		scroll-behavior: smooth;
+	}
 	#img{
 		height: auto;	
 		width: auto;
 		transform: scale(0.45) ;
 		margin-left: 0%;
-		margin-top: -200px;
+		margin-top: -44px;
 		transform-origin: left;
 		margin-left: 0%;
 		box-shadow: 0 10px 40px #003061, 0 0 0 28px #ffffffeb;
@@ -237,7 +336,7 @@
 	}
 	body {font-family: 'Khula', sans-serif;background: #333;background: radial-gradient(circle, rgba(43,43,43,1) 29%, rgba(29,29,29,1) 100%);}
 
-	input , textarea{
+	input:not([type="range"]), textarea{
 		font-size: 25px;
 		border-radius: 7px;
 		border: none;
@@ -281,6 +380,63 @@
 	}
 	button:hover{
 		background: #ff8a3e;
+	}
+
+	#quality {
+		width: 28%;
+		position: absolute;
+		top: 200px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+
+	#quality-num {
+		color: rgb(255 255 255 / 90%);
+		font-size: 27px;
+		position: absolute;
+		top: 154px;
+		left: 66%;
+	}
+
+	#cmd-output-container {
+		background: #090909;
+		height: 320px;
+		width: 535px;
+		margin: auto;
+		position: relative;
+		top: 25px;
+		overflow-y: scroll;
+		border-radius: 10px;
+		box-shadow: 0 0 12px 0px black;
+	}
+	#cmd-output-container::-webkit-scrollbar {
+		width: 5px;
+		background: transparent;
+	}
+	#cmd-output-container::-webkit-scrollbar-thumb{
+		background: rgba(97, 97, 97, 0.575);
+		border-radius: 20px;
+	}
+	#cmd-output-container p {
+		color: #00ca00;
+		font-family: monospace;
+		font-size: 16px;
+		padding: 11px;
+	}
+	#cmd-output-container input {
+		padding: 0;
+		background: #090909;
+		border-radius: 0;
+		position: relative;
+		top: -82px;
+		left: 262px;
+		height: 20px;
+		width: 481px;
+		font-size: 16px;
+		padding-left: 9px;
+		box-shadow: none;
+		font-family: monospace;
+		color: #bbe1fa;
 	}
 #keyboard {
 	margin: 50px auto;

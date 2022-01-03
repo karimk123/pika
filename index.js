@@ -5,6 +5,7 @@ var server = require('http').createServer(app);
 var io = require('socket.io')(server);
 var port = process.env.PORT ||3000;
 var currRes;
+var currQuality;
 
 //index route
 app.get('/', function(req, res){
@@ -14,8 +15,11 @@ app.get('/', function(req, res){
 
 
 io.on("connection", (socket) => {
+	// const ip = socket.handshake.headers['x-forwarded-for'] || socket.conn.remoteAddress; //not really working yet
+
 	console.log("a user connected");
 	socket.emit("update_res", currRes);
+	socket.emit("quality", currQuality);
 	socket.on("update_res", (res) =>{
 		currRes = res;
 		socket.broadcast.emit("update_res", res);
@@ -59,6 +63,20 @@ io.on("connection", (socket) => {
 	socket.on("hotkey", key => {
 		socket.broadcast.emit("hotkey", key);
 	})
+	socket.on("quality", num => {
+		currQuality = num;
+		socket.broadcast.emit("quality", num);
+	})
+
+	socket.on("cmd_output", data => {
+		socket.broadcast.emit("cmd_output", data);
+	})
+	socket.on("output_end", data => {
+		socket.broadcast.emit("output_end");
+	})
+	socket.on("cmd_quit", data => {
+		socket.broadcast.emit("cmd_quit");
+	})
 });
 
 
@@ -73,3 +91,5 @@ server.listen(port, function(){
 
 // app.get('/', (req, res) => res.send("Hello World!"));
 // app.listen(process.env.PORT || port, () => console.log('Example app 1istening at http://localhost:$(port)'));
+
+
